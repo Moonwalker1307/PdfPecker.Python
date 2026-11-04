@@ -99,6 +99,37 @@ no browser to launch, and errors that say what went wrong. A few things to tell 
 - To check a result, render it back with `pdf_to_images(pdf, dpi=60)` and look at the pages, or read it with
   `pdf_to_text`.
 
+## MCP server
+
+The package includes a [Model Context Protocol](https://modelcontextprotocol.io/) server, so chat apps and coding
+agents that speak MCP can make PDFs, look at their pages and read them. It runs over stdio and needs nothing but this
+package:
+
+```
+claude mcp add pdfpecker -- uvx pdfpecker mcp            # Claude Code
+```
+
+For Claude Desktop and other apps that read an `mcpServers` setting:
+
+```json
+{ "mcpServers": { "pdfpecker": { "command": "uvx", "args": ["pdfpecker", "mcp", "--root", "/Users/me/Documents/pdfs"] } } }
+```
+
+| Tool | What it does |
+|---|---|
+| `html_to_pdf` | HTML (inline or a file) to a PDF file, with previews of the first pages to check the layout |
+| `markdown_to_pdf` | the same for Markdown |
+| `render_pdf_pages` | PNG images of up to 20 pages, for the model to look at |
+| `pdf_to_text` | the text of a PDF, page by page |
+| `pdf_info` | page count and file size |
+| `merge_pdfs` | several PDF files into one |
+
+The tools read and write files only inside the `--root` folders (repeatable), because the model picks the paths. The
+default is the current folder, or `~/PdfPecker` when the server starts in the filesystem's root, as chat apps often
+do. `python -m pdfpecker mcp` runs the same server without `uvx`.
+
+<!-- mcp-name: io.github.Moonwalker1307/pdfpecker -->
+
 ## Building from source
 
 The wheel's native library is built from the released PdfPecker NuGet package named in `PDFPECKER_VERSION`.
@@ -121,7 +152,8 @@ with an FFI can use the same library.
 
 A PdfPecker release on NuGet is followed by a pull request here that changes `PDFPECKER_VERSION`. Once it is merged,
 the owner publishes a GitHub release tagged `v<version>`; the Wheels workflow builds the eight wheels again, checks the
-tag against `PDFPECKER_VERSION` and uploads them to PyPI with Trusted Publishing.
+tag against `PDFPECKER_VERSION` and uploads them to PyPI with Trusted Publishing. It then lists the new version of
+the MCP server (`server.json`) in the official MCP Registry.
 
 ## License
 

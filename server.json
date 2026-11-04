@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Moonwalker1307/pdfpecker",
+  "title": "PdfPecker",
+  "description": "HTML and Markdown to PDF with page previews, PDF text and merging. No browser, no network.",
+  "websiteUrl": "https://pdfpecker.net/",
+  "repository": {
+    "url": "https://github.com/Moonwalker1307/PdfPecker.Python",
+    "source": "github"
+  },
+  "version": "1.22.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "pdfpecker",
+      "version": "1.22.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        },
+        {
+          "type": "named",
+          "name": "--root",
+          "description": "A folder the tools may read and write. Default: the current folder, or ~/PdfPecker when that is the filesystem's root.",
+          "valueHint": "folder",
+          "format": "filepath",
+          "isRequired": false,
+          "isRepeated": true
+        }
+      ]
+    }
+  ]
+}

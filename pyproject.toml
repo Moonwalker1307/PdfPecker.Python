@@ -23,6 +23,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+[project.scripts]
+pdfpecker = "pdfpecker.__main__:main"
+
 [project.urls]
 Homepage = "https://pdfpecker.net/"
 Documentation = "https://pdfpecker.net/docs/"
