@@ -29,7 +29,9 @@ library itself is not here; the native project uses the released PdfPecker NuGet
 
 - `native/` – `Exports.cs` (the C ABI and statuses), `Operations.cs` (the operations, option reading, list framing).
 - `src/pdfpecker/` – `__init__.py` (the public API and its docstrings), `_native.py` (loading and calling the
-  library), `_errors.py` (exceptions), `py.typed`. The built library is copied in here and is git-ignored.
+  library), `_errors.py` (exceptions), `py.typed`, `mcp_server.py` (the MCP server, standard library only, run by
+  `__main__.py` as `pdfpecker mcp`). The built library is copied in here and is git-ignored.
+- `server.json` – the MCP Registry entry; the release workflow sets its version from `PDFPECKER_VERSION`.
 - `tests/` – pytest; `conftest.py` runs them against the source tree unless `PDFPECKER_TEST_INSTALLED=1`.
 - `ci/build.sh` builds the library for one RID, packs the wheel with its platform tag and tests the installed wheel;
   `ci/linux.sh` does it inside the PyPA manylinux and musllinux images.
