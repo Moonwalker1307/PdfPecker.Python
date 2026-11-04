@@ -14,6 +14,7 @@ Every function is thread-safe and releases the GIL while it works.
 from __future__ import annotations
 
 import datetime as _dt
+import json
 import os
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
@@ -23,7 +24,8 @@ from ._errors import (PdfFileError, PdfLimitError, PdfPasswordError, PdfPeckerAr
 
 __all__ = [
     "html_to_pdf", "html_file_to_pdf", "markdown_to_pdf", "markdown_file_to_pdf",
-    "pdf_to_images", "pdf_page_count", "pdf_to_text", "pdf_to_text_pages", "merge_pdfs",
+    "pdf_to_images", "pdf_page_count", "pdf_to_text", "pdf_to_text_pages", "pdf_to_markdown", "merge_pdfs",
+    "pdf_to_pdfa", "PdfAResult",
     "library_version", "__version__",
     "PdfPeckerError", "PdfPeckerArgumentError", "PdfReadError", "PdfPasswordError", "PdfLimitError",
     "PdfTimeoutError", "PdfFileError",
@@ -173,6 +175,79 @@ def pdf_to_text_pages(
 def pdf_to_text(pdf: Union[bytes, PathLike], **options) -> str:
     """Extracts the text of a PDF, pages separated by a form feed. Takes the options of pdf_to_text_pages."""
     return "\f".join(pdf_to_text_pages(pdf, **options))
+
+
+def pdf_to_markdown(
+    pdf: Union[bytes, PathLike],
+    *,
+    pages: Optional[Union[str, int, Sequence[int]]] = None,
+    include_links: bool = True,
+    include_annotations: bool = True,
+    include_images: bool = False,
+    page_comments: bool = False,
+    max_pages: Optional[int] = None,
+    password: Optional[str] = None,
+    timeout: Optional[float] = None,
+) -> str:
+    """Converts a PDF, any PDF and not only one PdfPecker made, to GitHub Flavored Markdown: headings, paragraphs,
+    lists and tables in reading order, for search indexes and language models.
+
+    A tagged PDF is read from its structure tree, other PDFs from their layout. Drawings and the text of scanned pages
+    are not part of the output.
+    include_links: text that links to a web or email address becomes a Markdown link.
+    include_annotations: include the text of annotations, such as form field values.
+    include_images: include pictures as data: URI images where they sit in the text (off by default: they are long).
+    page_comments: start each page with an HTML comment such as <!-- page 3 -->, so a passage can be traced to its page.
+    max_pages: stop with PdfLimitError beyond this many pages (default 10,000).
+    """
+    return _native.invoke("pdf_to_markdown", _pdf_bytes(pdf), {
+        "pages": _pages(pages), "include_links": include_links, "include_annotations": include_annotations,
+        "include_images": include_images, "page_comments": page_comments, "max_pages": max_pages,
+        "password": password, "timeout": timeout}).decode("utf-8")
+
+
+class PdfAResult:
+    """The outcome of pdf_to_pdfa: the converted PDF, what the conversion changed and what still breaks the rules."""
+
+    __slots__ = ("pdf", "changes", "problems")
+
+    def __init__(self, pdf: bytes, changes: List[str], problems: List[str]) -> None:
+        self.pdf = pdf
+        self.changes = changes
+        self.problems = problems
+
+    @property
+    def is_conformant(self) -> bool:
+        """True when the conversion found nothing left that breaks the PDF/A rules it checks; veraPDF has the final
+        word."""
+        return not self.problems
+
+    def __repr__(self) -> str:
+        return (f"PdfAResult(pdf=<{len(self.pdf)} bytes>, changes={len(self.changes)}, "
+                f"problems={len(self.problems)})")
+
+
+def pdf_to_pdfa(
+    pdf: Union[bytes, PathLike],
+    output: Optional[PathLike] = None,
+    *,
+    conformance: str = "PDF/A-2b",
+    timeout: Optional[float] = None,
+) -> PdfAResult:
+    """Converts an existing PDF, any PDF and not only one PdfPecker made, to PDF/A for long-term archiving.
+
+    Fonts that are not embedded are embedded, colours made device independent, and JavaScript and other things PDF/A
+    forbids removed; text stays text. Writes the PDF to output when given.
+    conformance: "PDF/A-2b" (default), "PDF/A-2u", "PDF/A-3b" or "PDF/A-3u". PDF/A-2 keeps only attachments that are
+        PDF/A files themselves; PDF/A-3 keeps every attachment.
+    Returns a PdfAResult whose changes say what was changed and whose problems say what could not be fixed. Encrypted
+    and signed PDFs raise PdfPeckerArgumentError.
+    """
+    raw = _native.invoke("pdf_to_pdfa", _pdf_bytes(pdf), {"conformance": conformance, "timeout": timeout})
+    converted, report = _native.unframe(raw)
+    details = json.loads(report.decode("utf-8"))
+    _write(converted, output)
+    return PdfAResult(converted, details["changes"], details["problems"])
 
 
 def merge_pdfs(

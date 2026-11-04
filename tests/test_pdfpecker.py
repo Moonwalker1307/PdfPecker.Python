@@ -161,6 +161,36 @@ def test_pdfa():
     assert b"pdfaid" in pdf or pdfpecker.pdf_page_count(pdf) == 1
 
 
+def test_pdf_to_markdown(tmp_path):
+    pdf = pdfpecker.html_to_pdf("<h1>Report</h1><p>See <a href='https://example.com'>the site</a>.</p>"
+                                "<ul><li>one</li><li>two</li></ul>", accessibility="tagged")
+    markdown = pdfpecker.pdf_to_markdown(pdf)
+    assert markdown.startswith("# Report")
+    assert "](https://example.com/)" in markdown
+    assert "- one" in markdown and "- two" in markdown
+    path = tmp_path / "r.pdf"
+    path.write_bytes(pdf)
+    assert pdfpecker.pdf_to_markdown(path, include_links=False, page_comments=True).startswith("<!-- page 1 -->")
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError):
+        pdfpecker.pdf_to_markdown(pdf, pages=3)
+
+
+def test_pdf_to_pdfa(tmp_path):
+    pdf = pdfpecker.html_to_pdf("<p>archive me", creation_date=0)
+    out = tmp_path / "a.pdf"
+    result = pdfpecker.pdf_to_pdfa(pdf, out, conformance="PDF/A-3u")
+    assert out.read_bytes() == result.pdf
+    assert b"pdfaid" in result.pdf
+    assert result.is_conformant, result.problems
+    assert isinstance(result.changes, list)
+    assert pdfpecker.pdf_to_text(result.pdf) == "archive me"
+    assert pdfpecker.pdf_to_pdfa(pdf).pdf == pdfpecker.pdf_to_pdfa(pdf).pdf
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError, match="conformance"):
+        pdfpecker.pdf_to_pdfa(pdf, conformance="PDF/A-4")
+    with pytest.raises(pdfpecker.PdfReadError):
+        pdfpecker.pdf_to_pdfa(b"not a pdf")
+
+
 def test_errors():
     with pytest.raises(pdfpecker.PdfPeckerArgumentError, match="page_size"):
         pdfpecker.html_to_pdf("x", page_size="B9")

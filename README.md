@@ -55,8 +55,10 @@ releases the GIL while it works, so threads convert in parallel.
 | `pdf_to_images(pdf, dpi=150, format="png", pages=None, width=None, height=None, transparent=False, quality=None, password=None)` | a list of encoded images, one per page |
 | `pdf_to_text(pdf, pages=None, password=None)` | the text in reading order, pages separated by `\f` |
 | `pdf_to_text_pages(pdf, pages=None, password=None)` | a list with the text of each page |
+| `pdf_to_markdown(pdf, pages=None, include_links=True, include_annotations=True, include_images=False, page_comments=False, max_pages=None, password=None)` | GitHub Flavored Markdown of any PDF: headings, lists and tables in reading order, for search indexes and language models |
 | `pdf_page_count(pdf, password=None)` | the number of pages |
 | `merge_pdfs(pdfs, title=None, author=None, bookmarks=True, creation_date=None)` | one PDF from several |
+| `pdf_to_pdfa(pdf, output=None, conformance="PDF/A-2b")` | any PDF converted to PDF/A-2b, -2u, -3b or -3u, as a `PdfAResult` with `pdf`, `changes`, `problems` and `is_conformant` |
 | `library_version()` | the version of the PdfPecker library inside |
 
 `pages` takes a page number, a list of numbers, or a range such as `"1-3,5"`, `"8-"` or `"last"`, numbered from 1.
@@ -121,6 +123,8 @@ For Claude Desktop and other apps that read an `mcpServers` setting:
 | `markdown_to_pdf` | the same for Markdown |
 | `render_pdf_pages` | PNG images of up to 20 pages, for the model to look at |
 | `pdf_to_text` | the text of a PDF, page by page |
+| `pdf_to_markdown` | any PDF as Markdown, returned or written to a file |
+| `pdf_to_pdfa` | any PDF converted to PDF/A, with what changed and what could not be fixed |
 | `pdf_info` | page count and file size |
 | `merge_pdfs` | several PDF files into one |
 
