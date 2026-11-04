@@ -214,10 +214,16 @@ sealed class OptionReader(JsonElement root)
 
     public T? Parse<T>(string name, Func<JsonElement, T> parse) where T : struct => Read(name, parse);
 
+    // CancellationTokenSource takes at most int.MaxValue milliseconds (about 24.8 days), and TimeSpan.FromSeconds
+    // throws OverflowException for a huge value, which would reach the caller as an unexpected error.
     public CancellationTokenSource? Timeout() =>
         Read("timeout", static e => e.GetDouble()) is { } seconds
-            ? new CancellationTokenSource(TimeSpan.FromSeconds(seconds > 0 ? seconds : throw new ArgumentException("timeout must be positive")))
+            ? new CancellationTokenSource(TimeSpan.FromSeconds(seconds is > 0 and <= MaxTimeoutSeconds
+                ? seconds
+                : throw new ArgumentException("timeout must be positive and at most 2,147,483 seconds")))
             : null;
+
+    const double MaxTimeoutSeconds = int.MaxValue / 1000;
 
     // JsonElement throws InvalidOperationException or FormatException for a value of the wrong type; the caller gave
     // the wrong type, so it is reported as an argument error that names the option.
