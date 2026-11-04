@@ -211,6 +211,9 @@ def test_errors():
         pdfpecker.pdf_to_images(pdf, pages=5)
     with pytest.raises(pdfpecker.PdfPeckerArgumentError, match="format"):
         pdfpecker.pdf_to_images(pdf, format="gif")
+    # A timeout too long for the native timer is a bad argument, not an unexpected error.
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError, match="timeout"):
+        pdfpecker.html_to_pdf("x", timeout=1e300)
     with pytest.raises(pdfpecker.PdfLimitError):
         pdfpecker.html_to_pdf(long_html(), max_pages=2)
     with pytest.raises(pdfpecker.PdfTimeoutError):
