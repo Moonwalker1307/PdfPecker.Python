@@ -112,6 +112,41 @@ _TOOLS: List[Dict[str, Any]] = [
         "annotations": {"readOnlyHint": True},
     },
     {
+        "name": "pdf_to_markdown",
+        "title": "PDF to Markdown",
+        "description": "Converts a PDF, any PDF, to GitHub Flavored Markdown: headings, paragraphs, lists and tables in "
+                       "reading order. Better than pdf_to_text for documents with structure. Returns the Markdown, or "
+                       "writes it to output_path when given.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pdf_path": {"type": "string"},
+                "pages": _PAGES,
+                "output_path": {"type": "string", "description": "A .md file to write instead of returning the text."},
+                "page_comments": {"type": "boolean", "description": "Start each page with <!-- page N -->."},
+                "password": {"type": "string"},
+            },
+            "required": ["pdf_path"],
+        },
+    },
+    {
+        "name": "pdf_to_pdfa",
+        "title": "Convert PDF to PDF/A",
+        "description": "Converts an existing PDF to PDF/A for long-term archiving (fonts embedded, colours made device "
+                       "independent, scripts removed; text stays text). Returns what it changed and anything it could "
+                       "not fix. Encrypted and signed PDFs are refused.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pdf_path": {"type": "string"},
+                "output_path": {"type": "string", "description": "The PDF/A file to write."},
+                "conformance": {"type": "string", "enum": ["PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"],
+                                "description": "Default PDF/A-2b; the U levels also keep the text searchable."},
+            },
+            "required": ["pdf_path", "output_path"],
+        },
+    },
+    {
         "name": "pdf_info",
         "title": "PDF page count",
         "description": "Returns the number of pages and the file size of a PDF.",
@@ -151,6 +186,8 @@ class Server:
             "markdown_to_pdf": self.markdown_to_pdf,
             "render_pdf_pages": self.render_pdf_pages,
             "pdf_to_text": self.pdf_to_text,
+            "pdf_to_markdown": self.pdf_to_markdown,
+            "pdf_to_pdfa": self.pdf_to_pdfa,
             "pdf_info": self.pdf_info,
             "merge_pdfs": self.merge_pdfs,
         }
@@ -257,6 +294,29 @@ class Server:
         texts = pdfpecker.pdf_to_text_pages(path, pages=a.get("pages"), password=a.get("password"), timeout=120)
         numbers = _page_numbers(a.get("pages"), len(texts), path, a.get("password"))
         return [_text("\n\n".join(f"--- page {n} ---\n{t}" for n, t in zip(numbers, texts)))]
+
+    def pdf_to_markdown(self, a: Dict[str, Any]) -> List[Dict[str, Any]]:
+        path = self.path(_required(a, "pdf_path"))
+        markdown = pdfpecker.pdf_to_markdown(path, pages=a.get("pages"), page_comments=bool(a.get("page_comments")),
+                                             password=a.get("password"), timeout=120)
+        if a.get("output_path") is None:
+            return [_text(markdown)]
+        output = self.path(a["output_path"])
+        os.makedirs(os.path.dirname(output), exist_ok=True)
+        with open(output, "w", encoding="utf-8", newline="\n") as f:
+            f.write(markdown)
+        return [_text(f"Wrote {output}: {len(markdown):,} characters.")]
+
+    def pdf_to_pdfa(self, a: Dict[str, Any]) -> List[Dict[str, Any]]:
+        path = self.path(_required(a, "pdf_path"))
+        output = self.path(_required(a, "output_path"))
+        os.makedirs(os.path.dirname(output), exist_ok=True)
+        result = pdfpecker.pdf_to_pdfa(path, output, conformance=a.get("conformance") or "PDF/A-2b", timeout=120)
+        lines = [f"Wrote {output}: {len(result.pdf):,} bytes."]
+        lines += (["Changed:"] + [f"- {c}" for c in result.changes]) if result.changes else []
+        lines += (["Still breaks the PDF/A rules:"] + [f"- {p}" for p in result.problems] if result.problems
+                  else ["No PDF/A problems left that the conversion checks for; veraPDF gives the final word."])
+        return [_text("\n".join(lines))]
 
     def pdf_info(self, a: Dict[str, Any]) -> List[Dict[str, Any]]:
         path = self.path(_required(a, "pdf_path"))

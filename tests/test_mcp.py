@@ -50,7 +50,8 @@ def test_stdio_session(tmp_path):
     assert replies[0]["result"]["protocolVersion"] == "2025-06-18"
     assert replies[0]["result"]["serverInfo"]["name"] == "pdfpecker"
     names = [t["name"] for t in replies[1]["result"]["tools"]]
-    assert names == ["html_to_pdf", "markdown_to_pdf", "render_pdf_pages", "pdf_to_text", "pdf_info", "merge_pdfs"]
+    assert names == ["html_to_pdf", "markdown_to_pdf", "render_pdf_pages", "pdf_to_text", "pdf_to_markdown",
+                     "pdf_to_pdfa", "pdf_info", "merge_pdfs"]
     assert replies[2]["result"]["isError"] is False
     assert (tmp_path / "out" / "hi.pdf").read_bytes().startswith(b"%PDF")
     assert replies[3]["error"]["code"] == -32601
@@ -111,3 +112,16 @@ def test_errors_are_tool_results(server, tmp_path):
     assert "at most" in texts(call(server, "render_pdf_pages", pdf_path="many.pdf", pages="1-"))
     reply = server.handle({"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"name": "nope"}})
     assert reply["error"]["code"] == -32603
+
+
+def test_markdown_and_pdfa_tools(server, tmp_path):
+    call(server, "html_to_pdf", html="<h1>Title</h1><ul><li>one</li></ul>", output_path="t.pdf", preview=False,
+         accessibility="tagged")
+    assert texts(call(server, "pdf_to_markdown", pdf_path="t.pdf")).startswith("# Title")
+    written = call(server, "pdf_to_markdown", pdf_path="t.pdf", output_path="md/t.md", page_comments=True)
+    assert "Wrote" in texts(written)
+    assert (tmp_path / "md" / "t.md").read_text(encoding="utf-8").startswith("<!-- page 1 -->")
+    converted = call(server, "pdf_to_pdfa", pdf_path="t.pdf", output_path="t-a.pdf", conformance="PDF/A-2u")
+    assert converted["isError"] is False and "veraPDF" in texts(converted)
+    assert b"pdfaid" in (tmp_path / "t-a.pdf").read_bytes()
+    assert call(server, "pdf_to_pdfa", pdf_path="t.pdf", output_path="x.pdf", conformance="PDF/A-4")["isError"]

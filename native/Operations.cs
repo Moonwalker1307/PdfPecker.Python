@@ -24,6 +24,8 @@ static class Operations
             "pdf_to_images" => PdfToImages(input.ToArray(), o, token),
             "pdf_to_text" => PdfToText(input.ToArray(), o, token),
             "merge_pdfs" => Merge(Frames.Read(input), o, token),
+            "pdf_to_markdown" => Encoding.UTF8.GetBytes(PdfToMarkdownOf(input.ToArray(), o, token)),
+            "pdf_to_pdfa" => ToPdfA(input.ToArray(), o, token),
             _ => throw new ArgumentException("unknown operation: " + op),
         };
         o.ThrowOnUnused();
@@ -140,6 +142,51 @@ static class Operations
         if (o.Bool("bookmarks") is { } bookmarks) options.Bookmarks = bookmarks;
         if (o.Long("creation_date") is { } seconds) options.CreationDate = DateTimeOffset.FromUnixTimeSeconds(seconds);
         return PdfMerger.Merge(pdfs, options, token);
+    }
+
+    static string PdfToMarkdownOf(byte[] pdf, OptionReader o, CancellationToken token)
+    {
+        var options = new PdfMarkdownOptions { Password = o.String("password") };
+        if (o.String("pages") is { } pages) options.Pages = PdfPageRange.Parse(pages);
+        if (o.Bool("include_links") is { } links) options.IncludeLinks = links;
+        if (o.Bool("include_annotations") is { } annotations) options.RenderAnnotations = annotations;
+        if (o.Bool("include_images") is { } images) options.IncludeImages = images;
+        if (o.Bool("page_comments") is { } comments) options.IncludePageComments = comments;
+        if (o.Int("max_pages") is { } maxPages) options.MaxPages = maxPages;
+        return PdfToMarkdown.Convert(pdf, options, token);
+    }
+
+    // The result is two frames: the converted PDF, then a JSON object with the lists of changes and problems, written
+    // with Utf8JsonWriter because serializer reflection would break trimming.
+    static byte[] ToPdfA(byte[] pdf, OptionReader o, CancellationToken token)
+    {
+        var options = new PdfAConversionOptions();
+        if (o.String("conformance") is { } conformance)
+            options.Conformance = conformance.ToLowerInvariant() switch
+            {
+                "pdf/a-2b" or "pdfa-2b" => PdfConformance.PdfA2b,
+                "pdf/a-2u" or "pdfa-2u" => PdfConformance.PdfA2u,
+                "pdf/a-3b" or "pdfa-3b" => PdfConformance.PdfA3b,
+                "pdf/a-3u" or "pdfa-3u" => PdfConformance.PdfA3u,
+                _ => throw new ArgumentException("conformance must be PDF/A-2b, -2u, -3b or -3u, not " + conformance),
+            };
+        var result = PdfToPdfA.Convert(pdf, options, token);
+        using var report = new MemoryStream();
+        using (var json = new Utf8JsonWriter(report))
+        {
+            json.WriteStartObject();
+            WriteList(json, "changes", result.Changes);
+            WriteList(json, "problems", result.Problems);
+            json.WriteEndObject();
+        }
+        return Frames.Write([result.Pdf, report.ToArray()]);
+    }
+
+    static void WriteList(Utf8JsonWriter json, string name, IReadOnlyList<string> items)
+    {
+        json.WriteStartArray(name);
+        foreach (var item in items) json.WriteStringValue(item);
+        json.WriteEndArray();
     }
 
     static IReadOnlyList<int> PagesOf(OptionReader o, int pageCount) =>
