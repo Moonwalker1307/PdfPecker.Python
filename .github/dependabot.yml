@@ -1,0 +1,8 @@
+# Weekly pull requests when a pinned GitHub Action gets a new version. PdfPecker itself is not updated here: its
+# version moves with each library release, in a pull request that changes PDFPECKER_VERSION.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
