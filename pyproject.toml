@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdfpecker"
+dynamic = ["version"]
+description = "Fast HTML and Markdown to PDF, and PDF to images and text. No browser, no dependencies."
+readme = "README.md"
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.md"]
+requires-python = ">=3.9"
+authors = [{ name = "Moonwalker1307" }]
+keywords = ["pdf", "html-to-pdf", "markdown-to-pdf", "pdf-to-image", "pdf-to-text", "invoice", "report", "pdfa"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://pdfpecker.net/"
+Documentation = "https://pdfpecker.net/docs/"
+Source = "https://github.com/Moonwalker1307/PdfPecker.Python"
+Library = "https://github.com/Moonwalker1307/PdfPecker"
+
+[tool.setuptools.dynamic]
+version = { file = "PDFPECKER_VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pdfpecker = ["py.typed", "pdfpecker_native.so", "pdfpecker_native.dylib", "pdfpecker_native.dll"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

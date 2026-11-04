@@ -1,0 +1,8 @@
+__pycache__/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+native/bin/
+native/obj/
+src/pdfpecker/pdfpecker_native.*

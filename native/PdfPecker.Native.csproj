@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- PdfPecker as a NativeAOT shared library with a C ABI, which the Python package loads with ctypes. It uses the
+       released PdfPecker NuGet package of the version in PDFPECKER_VERSION, so the wheel and the NuGet package always
+       hold the same library. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <AssemblyName>pdfpecker_native</AssemblyName>
+    <!-- PdfPecker formats and compares with the invariant culture, so ICU is not needed, and leaving it out keeps the
+         library loadable on machines without libicu. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PdfPeckerVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../PDFPECKER_VERSION').Trim())</PdfPeckerVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="PdfPecker" Version="$(PdfPeckerVersion)" />
+  </ItemGroup>
+</Project>
