@@ -5,7 +5,7 @@ using PdfPecker;
 
 namespace PdfPecker.Native;
 
-// The C ABI the Python package calls. There is one entry point that takes an operation name, so a new operation does
+// The C ABI the Python and Node packages call. There is one entry point that takes an operation name, so a new operation does
 // not change the ABI:
 //
 //   int  pdfpecker_invoke(const char* op, const uint8_t* input, int64_t input_len, const char* options_json,

@@ -51,8 +51,10 @@ platforms.
 
 After a PdfPecker NuGet release (once nuget.org serves it), a PR changes `PDFPECKER_VERSION` and adds functions or
 options for what the release added. The owner publishes the GitHub release `v<version>`; the workflow uploads to
-PyPI with Trusted Publishing (project `pdfpecker`, workflow `wheels.yml`, environment `pypi`). Never publish, tag or
-create a release yourself.
+PyPI with Trusted Publishing (project `pdfpecker`, workflow `wheels.yml`, environment `pypi`), and attaches the eight
+native libraries to the release, where the npm package (Moonwalker1307/PdfPecker.Node) takes them from. The C ABI is
+therefore shared with Node: an ABI change needs a matching PdfPecker.Node release. Never publish, tag or create a
+release yourself.
 
 ## Commit guidance
 

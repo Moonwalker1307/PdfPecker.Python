@@ -157,7 +157,9 @@ with an FFI can use the same library.
 A PdfPecker release on NuGet is followed by a pull request here that changes `PDFPECKER_VERSION`. Once it is merged,
 the owner publishes a GitHub release tagged `v<version>`; the Wheels workflow builds the eight wheels again, checks the
 tag against `PDFPECKER_VERSION` and uploads them to PyPI with Trusted Publishing. It then lists the new version of
-the MCP server (`server.json`) in the official MCP Registry.
+the MCP server (`server.json`) in the official MCP Registry. The release also gets the eight native libraries as
+assets (`pdfpecker_native-<rid>.<ext>` and `SHA256SUMS`), which the npm package
+[PdfPecker.Node](https://github.com/Moonwalker1307/PdfPecker.Node) ships, so it is released after this one.
 
 ## License
 
