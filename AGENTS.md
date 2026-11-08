@@ -37,6 +37,9 @@ library itself is not here; the native project uses the released PdfPecker NuGet
   `ci/linux.sh` does it inside the PyPA manylinux and musllinux images.
 - `setup.py` tags the wheel `py3-none-<platform>` (the code is pure Python over ctypes, so any Python 3.9+ works).
 - `.github/workflows/wheels.yml` – eight platform builds on every PR, and the PyPI upload on a published release.
+- `.github/workflows/vulnerability-scan.yml` – daily: OSV-Scanner on the NuGet packages the library is built from
+  (results in Security → Code scanning), and an issue for each new .NET security release of the version the library
+  is built for, since every wheel carries that runtime.
 
 ## Build and verify
 
