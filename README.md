@@ -53,12 +53,14 @@ releases the GIL while it works, so threads convert in parallel.
 | `markdown_to_pdf(markdown, **options)` | PDF bytes from CommonMark with GitHub tables, task lists, strikethrough and footnotes |
 | `markdown_file_to_pdf(path, output=None, **options)` | as `html_file_to_pdf` |
 | `pdf_to_images(pdf, dpi=150, format="png", pages=None, width=None, height=None, transparent=False, quality=None, password=None)` | a list of encoded images, one per page |
-| `pdf_to_text(pdf, pages=None, password=None)` | the text in reading order, pages separated by `\f` |
-| `pdf_to_text_pages(pdf, pages=None, password=None)` | a list with the text of each page |
+| `pdf_to_text(pdf, pages=None, password=None, order="reading")` | the text in reading order, pages separated by `\f`; `order="top_to_bottom"` reads across columns as before 1.24.0 |
+| `pdf_to_text_pages(pdf, pages=None, password=None, order="reading")` | a list with the text of each page |
 | `pdf_to_markdown(pdf, pages=None, include_links=True, include_annotations=True, include_images=False, page_comments=False, max_pages=None, password=None)` | GitHub Flavored Markdown of any PDF: headings, lists and tables in reading order, for search indexes and language models |
 | `pdf_page_count(pdf, password=None)` | the number of pages |
 | `merge_pdfs(pdfs, title=None, author=None, bookmarks=True, creation_date=None)` | one PDF from several |
 | `pdf_to_pdfa(pdf, output=None, conformance="PDF/A-2b")` | any PDF converted to PDF/A-2b, -2u, -3b or -3u, as a `PdfAResult` with `pdf`, `changes`, `problems` and `is_conformant` |
+| `redact_pdf(pdf, output=None, text=None, pattern=None, areas=None, ignore_case=False, fill_color="#000000")` | any PDF with the matching text, or the `(page, x, y, width, height)` areas in points, removed from the file (text, image pixels, shapes, links and fields), not only covered |
+| `read_barcodes(data, formats=None, try_inverted=True, pages=None, password=None, dpi=None)` | the QR, Data Matrix, Code 128 and EAN-13 codes in an image or the pages of a PDF, as `Barcode` objects with `format`, `text`, `data`, `is_gs1`, `page`, position and `corners` |
 | `library_version()` | the version of the PdfPecker library inside |
 
 `pages` takes a page number, a list of numbers, or a range such as `"1-3,5"`, `"8-"` or `"last"`, numbered from 1.

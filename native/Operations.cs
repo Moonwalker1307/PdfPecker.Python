@@ -26,6 +26,8 @@ static class Operations
             "merge_pdfs" => Merge(Frames.Read(input), o, token),
             "pdf_to_markdown" => Encoding.UTF8.GetBytes(PdfToMarkdownOf(input.ToArray(), o, token)),
             "pdf_to_pdfa" => ToPdfA(input.ToArray(), o, token),
+            "redact_pdf" => Redact(input.ToArray(), o, token),
+            "read_barcodes" => ReadBarcodes(input.ToArray(), o, token),
             _ => throw new ArgumentException("unknown operation: " + op),
         };
         o.ThrowOnUnused();
@@ -132,6 +134,13 @@ static class Operations
     {
         var options = new PdfTextOptions { Password = o.String("password") };
         if (o.String("pages") is { } pages) options.Pages = PdfPageRange.Parse(pages);
+        if (o.String("order") is { } order)
+            options.Order = order.ToLowerInvariant() switch
+            {
+                "reading" => PdfTextOrder.Reading,
+                "top_to_bottom" => PdfTextOrder.TopToBottom,
+                _ => throw new ArgumentException("order must be reading or top_to_bottom, not " + order),
+            };
         var texts = PdfText.ExtractPages(pdf, options, token);
         return Frames.Write(texts.Select(t => Encoding.UTF8.GetBytes(t.Text)).ToArray());
     }
@@ -180,6 +189,121 @@ static class Operations
             json.WriteEndObject();
         }
         return Frames.Write([result.Pdf, report.ToArray()]);
+    }
+
+    // Areas come as [page, x, y, width, height] lists; text and pattern add the areas of the words that hold them, as
+    // PdfRedactor.FindText finds them, so that one call can combine all three.
+    static byte[] Redact(byte[] pdf, OptionReader o, CancellationToken token)
+    {
+        var areas = new List<PdfRedactionArea>();
+        if (o.Element("areas") is { } list)
+        {
+            if (list.ValueKind != JsonValueKind.Array) throw new ArgumentException("areas must be a list of (page, x, y, width, height)");
+            foreach (var a in list.EnumerateArray())
+            {
+                if (a.ValueKind != JsonValueKind.Array || a.GetArrayLength() != 5)
+                    throw new ArgumentException("each area must be (page, x, y, width, height), not " + a.GetRawText());
+                try { areas.Add(new PdfRedactionArea(a[0].GetInt32(), a[1].GetDouble(), a[2].GetDouble(), a[3].GetDouble(), a[4].GetDouble())); }
+                catch (Exception e) when (e is InvalidOperationException or FormatException)
+                {
+                    throw new ArgumentException("each area must be (page, x, y, width, height) numbers, not " + a.GetRawText());
+                }
+            }
+        }
+        bool ignoreCase = o.Bool("ignore_case") ?? false;
+        if (o.String("text") is { } text)
+            areas.AddRange(PdfRedactor.FindText(pdf, text, ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal, token));
+        if (o.String("pattern") is { } pattern)
+        {
+            var regexOptions = System.Text.RegularExpressions.RegexOptions.CultureInvariant
+                | (ignoreCase ? System.Text.RegularExpressions.RegexOptions.IgnoreCase : 0);
+            System.Text.RegularExpressions.Regex regex;
+            try { regex = new System.Text.RegularExpressions.Regex(pattern, regexOptions, TimeSpan.FromSeconds(5)); }
+            catch (ArgumentException e) { throw new ArgumentException("pattern is not a valid regular expression: " + e.Message); }
+            areas.AddRange(PdfRedactor.FindText(pdf, regex, token));
+        }
+        var options = new PdfRedactOptions();
+        if (o.Element("fill_color") is { } fill) options.FillColor = fill.ValueKind == JsonValueKind.String
+            ? fill.GetString()
+            : throw new ArgumentException("fill_color must be a CSS colour or None");
+        return PdfRedactor.Redact(pdf, areas, options, token);
+    }
+
+    // Reads the barcodes of an image or, when the input starts like a PDF, of its pages. The result is a JSON list
+    // written with Utf8JsonWriter, as for ToPdfA.
+    static byte[] ReadBarcodes(byte[] input, OptionReader o, CancellationToken token)
+    {
+        var formats = BarcodeFormat.All;
+        if (o.Element("formats") is { } list)
+        {
+            if (list.ValueKind != JsonValueKind.Array) throw new ArgumentException("formats must be a list of format names");
+            formats = 0;
+            foreach (var f in list.EnumerateArray())
+                formats |= (f.ValueKind == JsonValueKind.String ? f.GetString() : null)?.ToLowerInvariant() switch
+                {
+                    "qr" or "qr_code" => BarcodeFormat.QrCode,
+                    "data_matrix" => BarcodeFormat.DataMatrix,
+                    "code128" or "code_128" => BarcodeFormat.Code128,
+                    "ean13" or "ean_13" => BarcodeFormat.Ean13,
+                    _ => throw new ArgumentException("formats are qr_code, data_matrix, code128 and ean13, not " + f.GetRawText()),
+                };
+            if (formats == 0) throw new ArgumentException("formats is empty");
+        }
+        bool tryInverted = o.Bool("try_inverted") ?? true;
+        string? password = o.String("password");
+        string? pages = o.String("pages");
+        float? dpi = o.Float("dpi");
+        IReadOnlyList<BarcodeResult> found;
+        if (input.AsSpan().StartsWith("%PDF"u8) || input.AsSpan(0, Math.Min(input.Length, 1024)).IndexOf("%PDF-"u8) >= 0)
+        {
+            var options = new PdfBarcodeOptions { Password = password, Formats = formats, TryInverted = tryInverted };
+            if (pages != null) options.Pages = PdfPageRange.Parse(pages);
+            if (dpi is { } d) options.Dpi = d;
+            found = PdfBarcodes.Find(input, options, token);
+        }
+        else
+        {
+            if (password != null || pages != null || dpi != null)
+                throw new ArgumentException("password, pages and dpi are only for PDFs");
+            found = Barcode.Read(input, new BarcodeReaderOptions { Formats = formats, TryInverted = tryInverted }, token);
+        }
+        using var output = new MemoryStream();
+        using (var json = new Utf8JsonWriter(output))
+        {
+            json.WriteStartArray();
+            foreach (var b in found)
+            {
+                json.WriteStartObject();
+                json.WriteString("format", b.Format switch
+                {
+                    BarcodeFormat.QrCode => "qr_code",
+                    BarcodeFormat.DataMatrix => "data_matrix",
+                    BarcodeFormat.Code128 => "code128",
+                    BarcodeFormat.Ean13 => "ean13",
+                    _ => b.Format.ToString().ToLowerInvariant(),
+                });
+                json.WriteString("text", b.Text);
+                json.WriteBase64String("bytes", b.Bytes);
+                json.WriteBoolean("is_gs1", b.IsGs1);
+                json.WriteNumber("page", b.PageNumber);
+                json.WriteNumber("x", b.X);
+                json.WriteNumber("y", b.Y);
+                json.WriteNumber("width", b.Width);
+                json.WriteNumber("height", b.Height);
+                json.WriteStartArray("corners");
+                foreach (var c in b.Corners)
+                {
+                    json.WriteStartArray();
+                    json.WriteNumberValue(c.X);
+                    json.WriteNumberValue(c.Y);
+                    json.WriteEndArray();
+                }
+                json.WriteEndArray();
+                json.WriteEndObject();
+            }
+            json.WriteEndArray();
+        }
+        return output.ToArray();
     }
 
     static void WriteList(Utf8JsonWriter json, string name, IReadOnlyList<string> items)
