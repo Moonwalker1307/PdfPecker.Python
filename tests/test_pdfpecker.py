@@ -2,6 +2,7 @@ import base64
 import concurrent.futures
 import datetime
 import os
+import pathlib
 import struct
 import zlib
 
@@ -189,6 +190,55 @@ def test_pdf_to_pdfa(tmp_path):
         pdfpecker.pdf_to_pdfa(pdf, conformance="PDF/A-4")
     with pytest.raises(pdfpecker.PdfReadError):
         pdfpecker.pdf_to_pdfa(b"not a pdf")
+
+
+def test_text_order():
+    left = " ".join(f"Left column sentence number {i} goes on here." for i in range(12))
+    right = " ".join(f"Right column sentence number {i} goes on here." for i in range(12))
+    pdf = pdfpecker.html_to_pdf(f"<div style='display: flex; gap: 40px'><p style='flex: 1'>{left}</p>"
+                                f"<p style='flex: 1'>{right}</p></div>")
+    reading = pdfpecker.pdf_to_text(pdf)
+    assert reading.index("Right") > reading.index("number 11")
+    across = pdfpecker.pdf_to_text(pdf, order="top_to_bottom")
+    assert across.index("Right") < across.index("number 11")
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError, match="order"):
+        pdfpecker.pdf_to_text(pdf, order="sideways")
+
+
+def test_redact_pdf(tmp_path):
+    pdf = pdfpecker.html_to_pdf("<p>Customer 123456-7890 owes 42 EUR</p><p>Contact Example Customer Ltd.</p>",
+                                creation_date=0)
+    out = tmp_path / "r.pdf"
+    redacted = pdfpecker.redact_pdf(pdf, out, pattern=r"\b\d{6}-\d{4}\b", text="example customer", ignore_case=True)
+    assert out.read_bytes() == redacted
+    text = pdfpecker.pdf_to_text(redacted)
+    assert "123456" not in text and "Example" not in text
+    assert "owes 42 EUR" in text
+    cut = pdfpecker.redact_pdf(pdf, areas=[(1, 0, 0, 2000, 2000)], fill_color=None)
+    assert pdfpecker.pdf_to_text(cut).strip() == ""
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError, match="pattern"):
+        pdfpecker.redact_pdf(pdf, pattern="(")
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError):
+        pdfpecker.redact_pdf(pdf, areas=[(9, 0, 0, 10, 10)])
+
+
+def test_read_barcodes(tmp_path):
+    svg = (pathlib.Path(__file__).parent / "qr.svg").read_text()
+    pdf = pdfpecker.html_to_pdf(f"<p>Pay here</p>{svg}")
+    [found] = pdfpecker.read_barcodes(pdf)
+    assert found.format == "qr_code" and found.text == "https://example.com/invoice/42"
+    assert found.page == 1 and found.width > 0 and len(found.corners) == 4
+    assert found.data == found.text.encode()
+    [png] = pdfpecker.pdf_to_images(pdf, dpi=150)
+    path = tmp_path / "page.png"
+    path.write_bytes(png)
+    [from_image] = pdfpecker.read_barcodes(path)
+    assert from_image.text == found.text and from_image.page == 0
+    assert pdfpecker.read_barcodes(png, formats=["ean13"]) == []
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError, match="formats"):
+        pdfpecker.read_barcodes(png, formats=["aztec"])
+    with pytest.raises(pdfpecker.PdfPeckerArgumentError):
+        pdfpecker.read_barcodes(png, pages=1)
 
 
 def test_errors():

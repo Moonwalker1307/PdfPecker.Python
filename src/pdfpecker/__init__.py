@@ -13,6 +13,7 @@ Every function is thread-safe and releases the GIL while it works.
 """
 from __future__ import annotations
 
+import base64
 import datetime as _dt
 import json
 import os
@@ -25,7 +26,7 @@ from ._errors import (PdfFileError, PdfLimitError, PdfPasswordError, PdfPeckerAr
 __all__ = [
     "html_to_pdf", "html_file_to_pdf", "markdown_to_pdf", "markdown_file_to_pdf",
     "pdf_to_images", "pdf_page_count", "pdf_to_text", "pdf_to_text_pages", "pdf_to_markdown", "merge_pdfs",
-    "pdf_to_pdfa", "PdfAResult",
+    "pdf_to_pdfa", "PdfAResult", "redact_pdf", "read_barcodes", "Barcode",
     "library_version", "__version__",
     "PdfPeckerError", "PdfPeckerArgumentError", "PdfReadError", "PdfPasswordError", "PdfLimitError",
     "PdfTimeoutError", "PdfFileError",
@@ -165,10 +166,16 @@ def pdf_to_text_pages(
     *,
     pages: Optional[Union[str, int, Sequence[int]]] = None,
     password: Optional[str] = None,
+    order: str = "reading",
     timeout: Optional[float] = None,
 ) -> List[str]:
-    """Extracts the text of each page, in reading order, as one string per page."""
-    raw = _native.invoke("pdf_to_text", _pdf_bytes(pdf), {"pages": _pages(pages), "password": password, "timeout": timeout})
+    """Extracts the text of each page, in reading order, as one string per page.
+
+    order: "reading" (default) follows a tagged PDF's structure tree, and reads columns and boxes set side by side one
+        after the other; "top_to_bottom" reads every line from top to bottom across the page, as before 1.24.0.
+    """
+    raw = _native.invoke("pdf_to_text", _pdf_bytes(pdf), {
+        "pages": _pages(pages), "password": password, "order": order, "timeout": timeout})
     return [page.decode("utf-8") for page in _native.unframe(raw)]
 
 
@@ -248,6 +255,86 @@ def pdf_to_pdfa(
     details = json.loads(report.decode("utf-8"))
     _write(converted, output)
     return PdfAResult(converted, details["changes"], details["problems"])
+
+
+def redact_pdf(
+    pdf: Union[bytes, PathLike],
+    output: Optional[PathLike] = None,
+    *,
+    text: Optional[str] = None,
+    pattern: Optional[str] = None,
+    areas: Optional[Iterable[Tuple[int, float, float, float, float]]] = None,
+    ignore_case: bool = False,
+    fill_color: Optional[str] = "#000000",
+    timeout: Optional[float] = None,
+) -> bytes:
+    r"""Removes text, image pixels, shapes, links and form fields from a PDF, any PDF and not only one PdfPecker made,
+    from the file itself rather than only from sight, and draws a box over each place.
+
+    text: remove every word that holds this text (a phrase matches across the words of a line).
+    pattern: remove every word that a regular expression matches, in .NET syntax, which agrees with Python's for
+        common patterns such as r"\b\d{6}-\d{4}\b".
+    areas: (page, x, y, width, height) rectangles in points from the top-left corner of the page, pages from 1.
+    ignore_case: compare text and pattern without regard to case.
+    fill_color: the colour of the boxes drawn over what was removed, as a CSS colour; None draws no box.
+    The text around what is removed keeps its place, the originals of redacted images leave the file, and earlier
+    revisions do not survive. Writes the PDF to output when given. Encrypted PDFs raise PdfPeckerArgumentError.
+    """
+    return _write(_native.invoke("redact_pdf", _pdf_bytes(pdf), {
+        "text": text, "pattern": pattern,
+        "areas": None if areas is None else [[int(a[0]), float(a[1]), float(a[2]), float(a[3]), float(a[4])] for a in areas],
+        "ignore_case": ignore_case, "fill_color": "transparent" if fill_color is None else fill_color,
+        "timeout": timeout}), output)
+
+
+class Barcode:
+    """A barcode that read_barcodes found.
+
+    format is "qr_code", "data_matrix", "code128" or "ean13". page is the PDF page from 1, or 0 for an image; the
+    position (x, y, width, height and the four corners) is in points on that page, or in pixels of the image, from the
+    top-left corner.
+    """
+
+    __slots__ = ("format", "text", "data", "is_gs1", "page", "x", "y", "width", "height", "corners")
+
+    def __init__(self, d: dict) -> None:
+        self.format: str = d["format"]
+        self.text: str = d["text"]
+        self.data: bytes = base64.b64decode(d["bytes"])
+        self.is_gs1: bool = d["is_gs1"]
+        self.page: int = d["page"]
+        self.x: float = d["x"]
+        self.y: float = d["y"]
+        self.width: float = d["width"]
+        self.height: float = d["height"]
+        self.corners: List[Tuple[float, float]] = [(c[0], c[1]) for c in d["corners"]]
+
+    def __repr__(self) -> str:
+        return f"Barcode(format={self.format!r}, text={self.text!r}, page={self.page})"
+
+
+def read_barcodes(
+    data: Union[bytes, PathLike],
+    *,
+    formats: Optional[Sequence[str]] = None,
+    try_inverted: bool = True,
+    pages: Optional[Union[str, int, Sequence[int]]] = None,
+    password: Optional[str] = None,
+    dpi: Optional[float] = None,
+    timeout: Optional[float] = None,
+) -> List[Barcode]:
+    """Reads QR codes, Data Matrix codes, Code 128 and EAN-13 barcodes from an image (PNG, JPEG, GIF, WebP, BMP or
+    TIFF) or from the pages of a PDF, given as bytes or a path.
+
+    formats: the formats to look for, from "qr_code", "data_matrix", "code128" and "ean13"; all by default.
+    try_inverted: also look for light codes on a dark background.
+    pages, password, dpi: for a PDF, the pages to search, its password and the resolution pages are rendered at
+        (default 300).
+    """
+    raw = _native.invoke("read_barcodes", _pdf_bytes(data), {
+        "formats": None if formats is None else list(formats), "try_inverted": try_inverted,
+        "pages": _pages(pages), "password": password, "dpi": dpi, "timeout": timeout})
+    return [Barcode(d) for d in json.loads(raw.decode("utf-8"))]
 
 
 def merge_pdfs(
