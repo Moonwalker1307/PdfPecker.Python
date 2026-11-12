@@ -162,6 +162,11 @@ def test_pdfa():
     assert b"pdfaid" in pdf or pdfpecker.pdf_page_count(pdf) == 1
 
 
+def test_pdfa_level_a():
+    pdf = pdfpecker.html_to_pdf("<h1>Archive</h1><p>text", conformance="PDF/A-3a", creation_date=0, compress=False)
+    assert b"/StructTreeRoot" in pdf
+
+
 def test_pdf_to_markdown(tmp_path):
     pdf = pdfpecker.html_to_pdf("<h1>Report</h1><p>See <a href='https://example.com'>the site</a>.</p>"
                                 "<ul><li>one</li><li>two</li></ul>", accessibility="tagged")

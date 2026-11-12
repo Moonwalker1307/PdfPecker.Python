@@ -38,7 +38,7 @@ _PAGE_OPTIONS = {
               "description": "Font files or folders (.ttf, .otf, .woff2) that CSS font-family can name. Needed for "
                              "scripts other than Latin, Greek and Cyrillic."},
     "use_system_fonts": {"type": "boolean", "description": "Also use the fonts installed on this machine."},
-    "conformance": {"type": "string", "enum": ["PDF/A-2b", "PDF/A-3b", "PDF/A-2u", "PDF/A-3u", "PDF/A-4", "PDF/A-4f"],
+    "conformance": {"type": "string", "enum": ["PDF/A-2b", "PDF/A-3b", "PDF/A-2u", "PDF/A-3u", "PDF/A-2a", "PDF/A-3a", "PDF/A-4", "PDF/A-4f"],
                     "description": "Write an archival PDF/A file."},
     "accessibility": {"type": "string", "enum": ["tagged", "PDF/UA-1", "PDF/UA-2"],
                       "description": "Write a tagged (accessible) PDF."},

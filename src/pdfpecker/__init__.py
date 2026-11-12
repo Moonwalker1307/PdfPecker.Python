@@ -98,7 +98,8 @@ def html_to_pdf(
     compress: compress the PDF's streams. bookmarks: make bookmarks from the headings.
     max_pages: stop with PdfLimitError beyond this many pages (default 100,000).
     creation_date: a fixed creation date, which makes the output byte-identical from run to run.
-    conformance: "PDF/A-2b", "PDF/A-3b", "PDF/A-2u", "PDF/A-3u", "PDF/A-4" or "PDF/A-4f".
+    conformance: "PDF/A-2b", "PDF/A-3b", "PDF/A-2u", "PDF/A-3u", "PDF/A-2a", "PDF/A-3a", "PDF/A-4" or "PDF/A-4f".
+        Level A ("PDF/A-2a", "PDF/A-3a") always writes a tagged structure tree and a language.
     accessibility: "tagged", "PDF/UA-1" or "PDF/UA-2".
     timeout: seconds before the conversion stops with PdfTimeoutError.
     """
