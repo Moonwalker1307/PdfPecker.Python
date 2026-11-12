@@ -80,7 +80,7 @@ Options of the HTML and Markdown functions:
 | `title`, `author`, `subject`, `keywords`, `language` | Document properties. |
 | `user_style_sheet` | CSS applied after the document's own. |
 | `creation_date` | A fixed date (`datetime`, `date` or Unix seconds): the output is then byte-identical from run to run. |
-| `conformance` | `"PDF/A-2b"`, `"PDF/A-3b"`, `"PDF/A-2u"`, `"PDF/A-3u"`, `"PDF/A-4"` or `"PDF/A-4f"`. |
+| `conformance` | `"PDF/A-2b"`, `"PDF/A-3b"`, `"PDF/A-2u"`, `"PDF/A-3u"`, `"PDF/A-2a"`, `"PDF/A-3a"`, `"PDF/A-4"` or `"PDF/A-4f"`. Level A always writes a tagged structure tree and a language. |
 | `accessibility` | `"tagged"`, `"PDF/UA-1"` or `"PDF/UA-2"`. |
 | `compress`, `bookmarks`, `max_pages` | Compress streams (on); bookmarks from headings (on); stop beyond this many pages (100,000). |
 

@@ -83,9 +83,11 @@ static class Operations
                 "pdf/a-3b" or "pdfa-3b" => PdfConformance.PdfA3b,
                 "pdf/a-2u" or "pdfa-2u" => PdfConformance.PdfA2u,
                 "pdf/a-3u" or "pdfa-3u" => PdfConformance.PdfA3u,
+                "pdf/a-2a" or "pdfa-2a" => PdfConformance.PdfA2a,
+                "pdf/a-3a" or "pdfa-3a" => PdfConformance.PdfA3a,
                 "pdf/a-4" or "pdfa-4" => PdfConformance.PdfA4,
                 "pdf/a-4f" or "pdfa-4f" => PdfConformance.PdfA4f,
-                _ => throw new ArgumentException("conformance must be PDF/A-2b, -3b, -2u, -3u, -4 or -4f, not " + conformance),
+                _ => throw new ArgumentException("conformance must be PDF/A-2b, -3b, -2u, -3u, -2a, -3a, -4 or -4f, not " + conformance),
             };
         if (o.String("accessibility") is { } accessibility)
             options.Accessibility = accessibility.ToLowerInvariant() switch
